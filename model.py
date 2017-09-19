@@ -1,5 +1,5 @@
 import tensorflow as tf
-import numpy as py
+import numpy as np
 
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
@@ -12,9 +12,9 @@ def initiate_weights(shape, name, mask_type=None):
     W = tf.get_variable(name, shape, tf.float32, initializer)
 
     if mask_type is not None: 
-        x_mid = shape[0]//2 
-        y_mid = shape[0]//2
-        mask = np.one(shape, dtype=np.float32)
+        x_mid = shape[0] // 2 
+        y_mid = shape[0] // 2
+        mask = np.ones(shape, dtype=np.float32)
         mask[x_mid, y_mid+1:, :, :] = 0
         mask[x_mid+1:, :, :, :] = 0
         if mask_type == 'a':
@@ -37,7 +37,7 @@ class GatedConvLayer():
     # payload is for stacking up
     def __init__(self, filter_shape, input, out_dim, gated=True, mask_type=None, conditional=None, payload=None, is_activated=True):
         self.input = input
-        self.W_shape = [filter_shape[0], filter_shape[1], input.get_shape[1], out_dim]
+        self.W_shape = [filter_shape[0], filter_shape[1], input.get_shape()[-1], out_dim]
         self.b_shape = out_dim
         self.gated = gated
         self.conditional = conditional
@@ -46,9 +46,9 @@ class GatedConvLayer():
         self.is_activated = is_activated
 
         if gated:
-            gated_activation_unit()
+            self.gated_activation_unit()
         else:
-            non_gated_activation_unit()
+            self.non_gated_activation_unit()
 
     def gated_activation_unit(self):
         W_f = initiate_weights(self.W_shape, "W_f", mask_type = self.mask_type)
@@ -108,7 +108,7 @@ class PixelCnn():
             fc1 = GatedConvLayer([1, 1], h_stack_in, f_map, gated=False, mask_type='b').get_output()
 
         with tf.variable_scope('fc_2'):
-            fc2 = GatedConvLayer([1, 1], fc1, 1, gated=False, is_activated=False, mask_type='b').get_output()
+            self.fc2 = GatedConvLayer([1, 1], fc1, 1, gated=False, is_activated=False, mask_type='b').get_output()
         self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.fc2, labels=self.X))
         self.pred = tf.nn.sigmoid(self.fc2)
         
