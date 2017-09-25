@@ -1,11 +1,6 @@
 import tensorflow as tf
 import numpy as np
-
-def conv2d(x, W):
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
-
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+from util import *
 
 def initiate_weights(shape, name, mask_type=None):
     initializer = tf.contrib.layers.xavier_initializer()
