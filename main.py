@@ -6,7 +6,11 @@ import argparse
 
 def train(conf, data, learning_rate=0.001):
 	X = tf.placeholder(tf.float32, shape=[None, conf.img_height, conf.img_width, conf.channel])
-	model = PixelCnn(X, conf)
+	h = tf.placeholder(tf.float32, shape=[None, conf.num_classes])
+	if conf.conditional:
+		model = PixelCnn(X, conf, conditional=h)
+	else:
+		model = PixelCnn(X, conf)
 
 	trainer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 	grads_and_vars = trainer.compute_gradients(model.loss)
@@ -24,6 +28,8 @@ def train(conf, data, learning_rate=0.001):
 				batch_y = one_hot(batch_y, conf.num_classes)
 
 				data_dict = {X : batch_X}
+				if conf.conditional:
+					data_dict[h] = batch_y
 
 				_, cost = sess.run([optimizer, model.loss], feed_dict=data_dict)
 				if (i%1 == 0) and (j == conf.num_batchs-1):
@@ -52,5 +58,5 @@ if __name__ == "__main__":
     conf.channel = 1
     conf.num_batchs = data.train.num_examples // conf.batch_size
 
-    conf.conditional = False
+    conf.conditional = True
     train(conf, data)
