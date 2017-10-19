@@ -77,7 +77,13 @@ class PixelCnn():
     def __init__(self, X, conf, conditional=None):
         self.X = X
         self.conf = conf
-        self.h = conditional
+        if conf.conditional:
+            if conditional is not None:
+                self.h = conditional
+            else:
+                self.h = tf.placeholder(tf.float32, shape=[None, conf.num_classes])
+        else:
+            self.h = None
 
         v_stack_in = X
         h_stack_in = X
@@ -98,6 +104,7 @@ class PixelCnn():
                 h_stack_out = GatedConvLayer([1, 1], h_stack, f_map, gated=False, mask_type=mask_type).get_output()
                 if residual:
                     h_stack_out += h_stack_in
+                h_stack_in = h_stack_out
 
         with tf.variable_scope('fc_1'):
             fc1 = GatedConvLayer([1, 1], h_stack_in, f_map, gated=False, mask_type='b').get_output()
