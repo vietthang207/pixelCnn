@@ -33,7 +33,7 @@ def generate_samples(conf, n_row, n_col, description):
 			print("Model restored from " + conf.model_path)
 		else:
 			print("No model at " + conf.model_path)
-	
+
 		for i in range(conf.img_height):
 			for j in range(conf.img_width):
 				for k in range(conf.channel):
@@ -42,6 +42,23 @@ def generate_samples(conf, n_row, n_col, description):
 					next_sample = binarize(next_sample)
 					samples[:, i, j, k] = next_sample[:, i, j, k]
 		save_images(samples, n_row, n_col, conf, description)
+
+def generate_samples_with_sess(sess, X, h, pred, conf, n_row, n_col, description):
+	print('Generating with description: ', description)
+	samples = np.zeros((n_row*n_col, conf.img_height, conf.img_width, conf.channel), dtype=np.float32)
+	labels = one_hot(np.array([0,1,2,3,4,5,6,7,8,9]*10), conf.num_classes)
+
+	for i in range(conf.img_height):
+		print(i)
+		for j in range(conf.img_width):
+			for k in range(conf.channel):
+				data_dict = {X:samples}
+				if conf.conditional is True:
+					data_dict[h] = labels
+				next_sample = sess.run(pred, feed_dict=data_dict)
+				next_sample = binarize(next_sample)
+				samples[:, i, j, k] = next_sample[:, i, j, k]
+	save_images(samples, n_row, n_col, conf, description)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

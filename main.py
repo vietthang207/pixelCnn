@@ -4,6 +4,7 @@ from model import *
 from util import *
 import argparse
 import os.path
+from generator import *
 
 def train(conf, data, learning_rate=0.001):
 	X = tf.placeholder(tf.float32, shape=[None, conf.img_height, conf.img_width, conf.channel])
@@ -31,6 +32,7 @@ def train(conf, data, learning_rate=0.001):
 			print("Model restored from " + conf.model_path)
 
 		for i in range(conf.epochs):
+			generate_samples_with_sess(sess, X, model.h, model.pred, conf, 10, 10, 'iter ' + str(i))
 			for j in range(conf.num_batchs):
 				batch_X, batch_y = data.train.next_batch(conf.batch_size)
 				# batch_X = batch_X.reshape([conf.batch_size, conf.img_height, conf.img_width, conf.channel])
@@ -44,9 +46,9 @@ def train(conf, data, learning_rate=0.001):
 					data_dict[model.h] = batch_y
 
 				_, cost = sess.run([optimizer, model.loss], feed_dict=data_dict)
-				if (i%1 == 0) and (j == conf.num_batchs-1):
-					print('Running epoch ' + str(i) + '. Loss: ' + str(cost))
-			if (i%1 == 0) and (i > 0) :
+			if (i%1 == 0) and (j == conf.num_batchs-1):
+				print('Running epoch ' + str(i) + '. Loss: ' + str(cost))
+			if (i%1 == 0):
 				saver.save(sess, conf.model_path)
 				print("Model saved to " + conf.model_path)
 		saver.save(sess, conf.model_path)
@@ -69,12 +71,13 @@ if __name__ == "__main__":
     parser.add_argument('--summary_path', type=str, default='logs')
     conf = parser.parse_args()
 
-    from tensorflow.examples.tutorials.mnist import input_data
-    data = input_data.read_data_sets(conf.data_path)
-    conf.num_classes = 10
-    conf.img_height = conf.img_width = 28
-    conf.channel = 1
-    conf.num_batchs = data.train.num_examples // conf.batch_size
-    # print(conf.num_batchs)
-    conf.conditional = False
-    train(conf, data)
+    if conf.data == 'mnist':
+	    from tensorflow.examples.tutorials.mnist import input_data
+	    data = input_data.read_data_sets(conf.data_path)
+	    conf.num_classes = 10
+	    conf.img_height = conf.img_width = 28
+	    conf.channel = 1
+	    conf.num_batchs = data.train.num_examples // conf.batch_size
+	    # print(conf.num_batchs)
+	    conf.conditional = False
+	    train(conf, data)
