@@ -32,11 +32,14 @@ def train(conf, data, learning_rate=0.001):
 			print("Model restored from " + conf.model_path)
 
 		for i in range(conf.epochs):
-			generate_samples_with_sess(sess, X, model.h, model.pred, conf, 10, 10, 'iter ' + str(i))
 			for j in range(conf.num_batchs):
-				batch_X, batch_y = data.train.next_batch(conf.batch_size)
+				if conf.data == 'mnist':
+					batch_X, batch_y = data.next_batch(conf.batch_size)
+				elif conf.data == 'tag-genome':
+					batch_X = data['features'][j * conf.batch_size : (j+1) * conf.batch_size]
+					batch_y = data['labels'][j * conf.batch_size : (j+1) * conf.batch_size]
 				# batch_X = batch_X.reshape([conf.batch_size, conf.img_height, conf.img_width, conf.channel])
-				batch_X = binarize(batch_X.reshape([conf.batch_size, conf.img_height, conf.img_width, conf.channel]))
+				batch_X = (batch_X.reshape([conf.batch_size, conf.img_height, conf.img_width, conf.channel]))
 				batch_y = one_hot(batch_y, conf.num_classes)
 
 				if j % 100 == 0:
@@ -51,33 +54,66 @@ def train(conf, data, learning_rate=0.001):
 			if (i%1 == 0):
 				saver.save(sess, conf.model_path)
 				print("Model saved to " + conf.model_path)
+			# generate_samples_with_sess(sess, X, model.h, model.pred, conf, 10, 10, 'iter ' + str(i))
 		saver.save(sess, conf.model_path)
 		print("Model saved to " + conf.model_path)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default='mnist')
-    parser.add_argument('--num_layers', type=int, default=12)
-    parser.add_argument('--f_map', type=int, default=32)
-    parser.add_argument('--epochs', type=int, default=50)
-    parser.add_argument('--batch_size', type=int, default=100)
-    parser.add_argument('--grad_clip', type=int, default=1)
-    parser.add_argument('--model', type=str, default='')
-    parser.add_argument('--data_path', type=str, default='data')
-    parser.add_argument('--model_path', type=str, default='./savedModel/model.ckpt')
-    parser.add_argument('--samples_path', type=str, default='./generatedSample')
-    parser.add_argument('--gpu_fraction', type=int, default=100)
-    parser.add_argument('--summary_path', type=str, default='logs')
-    conf = parser.parse_args()
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--data', type=str, default='tag-genome')
+	parser.add_argument('--num_layers', type=int, default=12)
+	parser.add_argument('--f_map', type=int, default=32)
+	parser.add_argument('--epochs', type=int, default=50)
+	parser.add_argument('--batch_size', type=int, default=100)
+	parser.add_argument('--grad_clip', type=int, default=1)
+	parser.add_argument('--model', type=str, default='')
+	parser.add_argument('--data_path', type=str, default='data')
+	parser.add_argument('--model_path', type=str, default='./savedModel/model.ckpt')
+	parser.add_argument('--samples_path', type=str, default='./generatedSample')
+	parser.add_argument('--gpu_fraction', type=int, default=100)
+	parser.add_argument('--summary_path', type=str, default='logs')
+	conf = parser.parse_args()
 
-    if conf.data == 'mnist':
-	    from tensorflow.examples.tutorials.mnist import input_data
-	    data = input_data.read_data_sets(conf.data_path)
-	    conf.num_classes = 10
-	    conf.img_height = conf.img_width = 28
-	    conf.channel = 1
-	    conf.num_batchs = data.train.num_examples // conf.batch_size
-	    # print(conf.num_batchs)
-	    conf.conditional = False
-	    train(conf, data)
+	if conf.data == 'mnist':
+		from tensorflow.examples.tutorials.mnist import input_data
+		data = input_data.read_data_sets(conf.data_path)
+		conf.num_classes = 10
+		conf.img_height = conf.img_width = 28
+		conf.channel = 1
+		conf.num_batchs = data.train.num_examples // conf.batch_size
+		conf.conditional = True
+		train(conf, data.train)
+	
+	if conf.data == 'tag-genome':
+		filename = "tag_relevance.dat"
+		num_movies = 9734
+		num_tags = 1128
+		data = np.zeros(num_movies * num_tags)
+		with open(filename, 'r') as infile:
+			for i in range(num_movies * num_tags):
+				line = infile.readline()
+				token = line.split()
+				data[i] = float(token[2])
+		features = np.zeros((num_movies, num_tags))
+		labels = np.zeros((num_movies, 1), dtype=int)
+
+		for i in range(num_movies):
+			labels[i] = i
+			features[i] = data[i * num_tags : (i+1) * num_tags]
+		
+		# features_placeholder = tf.placeholder(features.dtype, features.shape)
+		# labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
+		# dataset = tf.contrib.data.Dataset.from_tensor_slices((features_placeholder, labels_placeholder))
+		# iterator = dataset.make_initializable_iterator()
+		dataset = {'features': features, 'labels': labels}
+		# dataset.features = features
+		# dataset.labels = labels
+
+		conf.num_classes = num_movies
+		conf.img_height = 47
+		conf.img_width = 24
+		conf.channel = 1
+		conf.num_batchs = num_movies // conf.batch_size
+		conf.conditional = True
+		train(conf, dataset)
