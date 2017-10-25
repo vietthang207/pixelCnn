@@ -36,8 +36,11 @@ def train(conf, data, learning_rate=0.001):
 				if conf.data == 'mnist':
 					batch_X, batch_y = data.next_batch(conf.batch_size)
 				elif conf.data == 'tag-genome':
-					batch_X = data['features'][j * conf.batch_size : (j+1) * conf.batch_size]
-					batch_y = data['labels'][j * conf.batch_size : (j+1) * conf.batch_size]
+					permutation = np.random.permutation(data['labels'].shape[0])
+					features = data['features'][permutation]
+					labels = data['labels'][permutation]
+					batch_X = features[j * conf.batch_size : (j+1) * conf.batch_size]
+					batch_y = labels[j * conf.batch_size : (j+1) * conf.batch_size]
 				# batch_X = batch_X.reshape([conf.batch_size, conf.img_height, conf.img_width, conf.channel])
 				batch_X = (batch_X.reshape([conf.batch_size, conf.img_height, conf.img_width, conf.channel]))
 				batch_y = one_hot(batch_y, conf.num_classes)
@@ -116,4 +119,4 @@ if __name__ == "__main__":
 		conf.channel = 1
 		conf.num_batchs = num_movies // conf.batch_size
 		conf.conditional = True
-		train(conf, dataset)
+		train(conf, dataset, learning_rate=0.1)
