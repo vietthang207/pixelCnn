@@ -5,6 +5,7 @@ from util import *
 import argparse
 import os.path
 from generator import *
+from data_processor import *
 
 def train(conf, data, learning_rate=0.001):
 	X = tf.placeholder(tf.float32, shape=[None, conf.img_height, conf.img_width, conf.channel])
@@ -57,7 +58,7 @@ def train(conf, data, learning_rate=0.001):
 			if (i%1 == 0):
 				saver.save(sess, conf.model_path)
 				print("Model saved to " + conf.model_path)
-			# generate_samples_with_sess(sess, X, model.h, model.pred, conf, 10, 10, 'iter ' + str(i))
+			generate_samples_with_sess(sess, X, model.h, model.pred, conf, 10, 10, 'iter ' + str(i), tags=data['tags'])
 		saver.save(sess, conf.model_path)
 		print("Model saved to " + conf.model_path)
 
@@ -66,7 +67,8 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--data', type=str, default='tag-genome')
 	parser.add_argument('--num_layers', type=int, default=12)
-	parser.add_argument('--f_map', type=int, default=32)
+	parser.add_argument('--f_map', type=int, default=16)
+	parser.add_argument('--color_dim', type=int, default=10)
 	parser.add_argument('--epochs', type=int, default=50)
 	parser.add_argument('--batch_size', type=int, default=100)
 	parser.add_argument('--grad_clip', type=int, default=1)
@@ -92,31 +94,12 @@ if __name__ == "__main__":
 		filename = "tag_relevance.dat"
 		num_movies = 9734
 		num_tags = 1128
-		data = np.zeros(num_movies * num_tags)
-		with open(filename, 'r') as infile:
-			for i in range(num_movies * num_tags):
-				line = infile.readline()
-				token = line.split()
-				data[i] = float(token[2])
-		features = np.zeros((num_movies, num_tags))
-		labels = np.zeros((num_movies, 1), dtype=int)
-
-		for i in range(num_movies):
-			labels[i] = i
-			features[i] = data[i * num_tags : (i+1) * num_tags]
-		
-		# features_placeholder = tf.placeholder(features.dtype, features.shape)
-		# labels_placeholder = tf.placeholder(labels.dtype, labels.shape)
-		# dataset = tf.contrib.data.Dataset.from_tensor_slices((features_placeholder, labels_placeholder))
-		# iterator = dataset.make_initializable_iterator()
-		dataset = {'features': features, 'labels': labels}
-		# dataset.features = features
-		# dataset.labels = labels
+		dataset = process_tag_genome('data/tag-genome', num_movies, num_tags, cut_off_tags=100)
 
 		conf.num_classes = num_movies
-		conf.img_height = 47
-		conf.img_width = 24
+		conf.img_height = 10
+		conf.img_width = 10
 		conf.channel = 1
 		conf.num_batchs = num_movies // conf.batch_size
 		conf.conditional = True
-		train(conf, dataset, learning_rate=0.1)
+		train(conf, dataset, learning_rate=0.001)

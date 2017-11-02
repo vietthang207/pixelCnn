@@ -8,10 +8,11 @@ def initiate_weights(shape, name, mask_type=None):
 
     if mask_type is not None: 
         x_mid = shape[0] // 2 
-        y_mid = shape[0] // 2
+        y_mid = shape[1] // 2
         mask = np.ones(shape, dtype=np.float32)
         mask[x_mid, y_mid+1:, :, :] = 0
-        mask[x_mid+1:, :, :, :] = 0
+        if mask_type == 'a' or mask_type == 'b':
+            mask[x_mid+1:, :, :, :] = 0
         if mask_type == 'a':
             mask[x_mid, y_mid, :, :] = 0        
         W *= mask
@@ -93,11 +94,12 @@ class PixelCnn():
             mask_type = 'b' if i>0 else 'a'
             residual = (i>0)
 
-            with tf.variable_scope('v_stack_in' + str(i)):
-                v_stack_in = GatedConvLayer([filter_size, filter_size], v_stack_in, f_map, mask_type=mask_type, conditional=self.h).get_output()
+           
+            
             with tf.variable_scope('v_stack_out' + str(i)):
                 v_stack_out = GatedConvLayer([1, 1], v_stack_in, f_map, mask_type=mask_type, gated=False).get_output()
-
+            with tf.variable_scope('v_stack_in' + str(i)):
+                v_stack_in = GatedConvLayer([filter_size, filter_size], v_stack_in, f_map, mask_type='c', conditional=self.h).get_output()
             with tf.variable_scope('h_stack' + str(i)):
                 h_stack = GatedConvLayer([1, filter_size], h_stack_in, f_map, payload=v_stack_out, mask_type=mask_type, conditional=self.h).get_output()
             with tf.variable_scope('h_stack_out' + str(i)):
@@ -110,7 +112,12 @@ class PixelCnn():
             fc1 = GatedConvLayer([1, 1], h_stack_in, f_map, gated=False, mask_type='b').get_output()
 
         with tf.variable_scope('fc_2'):
-            self.fc2 = GatedConvLayer([1, 1], fc1, 1, gated=False, is_activated=False, mask_type='b').get_output()
-        self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.fc2, labels=self.X))
-        self.pred = tf.nn.sigmoid(self.fc2)
+            self.fc2 = GatedConvLayer([1, 1], fc1, conf.channel * conf.color_dim, gated=False, is_activated=False, mask_type='b').get_output()
+            self.fc2 = tf.reshape(self.fc2, (-1, conf.color_dim))
+        self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.fc2, labels=tf.cast(tf.reshape(self.X, [-1]), dtype=tf.int32)))
+        self.pred = tf.reshape(tf.argmax(tf.nn.softmax(self.fc2), dimension=tf.rank(self.fc2) - 1), tf.shape(self.X))
+        # self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.fc2, labels=self.X))
+        # self.pred = tf.nn.sigmoid(self.fc2)
+        # self.loss = tf.reduce_mean((self.fc2 - self.X) * (self.fc2 - self.X))
+        # self.pred = self.fc2
         

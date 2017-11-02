@@ -15,6 +15,17 @@ def save_images(images, n_row, n_col, conf, description):
 	filename = datetime.now().strftime('%Y_%m_%d_%H_%M')+description+".jpg"
 	scipy.misc.toimage(images, cmin=0.0, cmax=1.0).save(os.path.join(conf.samples_path, filename))
 
+def save_movies(samples, tags, conf, description):
+	samples = samples.reshape(-1, conf.img_height * conf.img_width * conf.channel)
+	filename = datetime.now().strftime('%Y_%m_%d_%H_%M')+description+".txt"
+	f = open(os.path.join(conf.samples_path, filename), 'w')
+	for i in range(len(samples)):
+		for j in range(conf.img_height * conf.img_width * conf.channel):
+			# print(len(samples), len(tags))
+			f.write(tags[j][-1])
+			f.write(': ' + str(samples[i][j]) + '\n')
+	f.close()
+
 def generate_samples(conf, n_row, n_col, description):
 	X = tf.placeholder(tf.float32, shape=[None, conf.img_height, conf.img_width, conf.channel])
 	h = tf.placeholder(tf.float32, shape=[None, conf.num_classes])
@@ -43,9 +54,10 @@ def generate_samples(conf, n_row, n_col, description):
 					samples[:, i, j, k] = next_sample[:, i, j, k]
 		save_images(samples, n_row, n_col, conf, description)
 
-def generate_samples_with_sess(sess, X, h, pred, conf, n_row, n_col, description):
+def generate_samples_with_sess(sess, X, h, pred, conf, n_row, n_col, description, tags=None):
 	print('Generating with description: ', description)
 	samples = np.zeros((n_row*n_col, conf.img_height, conf.img_width, conf.channel), dtype=np.float32)
+	print('sample shape', samples.shape)
 	labels = one_hot(np.array([0,1,2,3,4,5,6,7,8,9]*10), conf.num_classes)
 
 	for i in range(conf.img_height):
@@ -56,9 +68,12 @@ def generate_samples_with_sess(sess, X, h, pred, conf, n_row, n_col, description
 				if conf.conditional is True:
 					data_dict[h] = labels
 				next_sample = sess.run(pred, feed_dict=data_dict)
-				next_sample = binarize(next_sample)
+				# next_sample = binarize(next_sample)
 				samples[:, i, j, k] = next_sample[:, i, j, k]
-	save_images(samples, n_row, n_col, conf, description)
+	if conf.data == 'mnist':
+		save_images(samples, n_row, n_col, conf, description)
+	elif conf.data == 'tag-genome':
+		save_movies(samples, tags, conf, description)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
